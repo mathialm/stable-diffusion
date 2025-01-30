@@ -1,0 +1,10 @@
+.idea/*
+*.egg-info/*
+*.ckpt
+*.zip
+*.gz
+models/ldm/stable-diffusion-v1/*
+*__pycache__*
+outputs/*
+src/*
+src/taming-transformers/*
