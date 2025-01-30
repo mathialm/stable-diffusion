@@ -2,4 +2,7 @@
 *.egg-info/*
 *.ckpt
 *.zip
-./models/ldm/stable-diffusion-v1/*
+*.gz
+models/ldm/stable-diffusion-v1/*
+*__pycache__*
+outputs/*
