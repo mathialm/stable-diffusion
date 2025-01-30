@@ -1,4 +1,5 @@
 .idea/*
 *.egg-info/*
 *.ckpt
+*.zip
 ./models/ldm/stable-diffusion-v1/*
