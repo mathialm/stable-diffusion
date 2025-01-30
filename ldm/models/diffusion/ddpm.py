@@ -5,6 +5,8 @@ https://github.com/openai/improved-diffusion/blob/e94489283bb876ac1477d5dd7709bb
 https://github.com/CompVis/taming-transformers
 -- merci
 """
+import re
+import sys
 
 import torch
 import torch.nn as nn
@@ -133,6 +135,7 @@ class DDPM(pl.LightningModule):
 
         to_torch = partial(torch.tensor, dtype=torch.float32)
 
+        print(f"#####################DDPM running######################")
         self.register_buffer('betas', to_torch(betas))
         self.register_buffer('alphas_cumprod', to_torch(alphas_cumprod))
         self.register_buffer('alphas_cumprod_prev', to_torch(alphas_cumprod_prev))
@@ -188,6 +191,11 @@ class DDPM(pl.LightningModule):
         if "state_dict" in list(sd.keys()):
             sd = sd["state_dict"]
         keys = list(sd.keys())
+        #Additional to convert new model to old format
+        for key in keys:
+            sd[re.sub(r"^model.diffusion_model.", 'diffusion_model.', key)] = sd.pop(key)
+        keys = list(sd.keys())
+
         for k in keys:
             for ik in ignore_keys:
                 if k.startswith(ik):
@@ -200,6 +208,17 @@ class DDPM(pl.LightningModule):
             print(f"Missing Keys: {missing}")
         if len(unexpected) > 0:
             print(f"Unexpected Keys: {unexpected}")
+
+        #If we don't remove unexpected, it doesn't work
+        print(f"Removing {len(unexpected)} unexpected keys")
+        if "state_dict" in list(sd.keys()):
+            sd = sd["state_dict"]
+        for key in unexpected:
+            del sd[key]
+        missing, unexpected = self.load_state_dict(sd, strict=False) if not only_model else self.model.load_state_dict(
+            sd, strict=False)
+        assert len(missing) == 0
+        assert len(unexpected) == 0
 
     def q_mean_variance(self, x_start, t):
         """
@@ -327,7 +346,11 @@ class DDPM(pl.LightningModule):
         return self.p_losses(x, t, *args, **kwargs)
 
     def get_input(self, batch, k):
-        x = batch[k]
+        try:
+            x = batch[k]
+        except KeyError:
+            print(f"Could not find key {k} in {batch}")
+            raise
         if len(x.shape) == 3:
             x = x[..., None]
         x = rearrange(x, 'b h w c -> b c h w')
@@ -435,6 +458,8 @@ class LatentDiffusion(DDPM):
                  scale_factor=1.0,
                  scale_by_std=False,
                  *args, **kwargs):
+        print("####################LatentDiffusion#####################")
+        print(f"{kwargs = }")
         self.num_timesteps_cond = default(num_timesteps_cond, 1)
         self.scale_by_std = scale_by_std
         assert self.num_timesteps_cond <= kwargs['timesteps']
@@ -465,7 +490,7 @@ class LatentDiffusion(DDPM):
 
         self.restarted_from_ckpt = False
         if ckpt_path is not None:
-            self.init_from_ckpt(ckpt_path, ignore_keys)
+            self.init_from_ckpt(ckpt_path, ignore_keys, kwargs["load_only_unet"])
             self.restarted_from_ckpt = True
 
     def make_cond_schedule(self, ):
@@ -1134,7 +1159,7 @@ class LatentDiffusion(DDPM):
         if start_T is not None:
             timesteps = min(timesteps, start_T)
         iterator = tqdm(reversed(range(0, timesteps)), desc='Progressive Generation',
-                        total=timesteps) if verbose else reversed(
+                        total=timesteps, position=0, leave=True) if verbose else reversed(
             range(0, timesteps))
         if type(temperature) == float:
             temperature = [temperature] * timesteps
