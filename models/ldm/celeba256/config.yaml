@@ -57,14 +57,16 @@ model:
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 48
+    batch_size: 24
     num_workers: 5
     wrap: false
     train:
-      target: ldm.data.faceshq.CelebAHQTrain
+      target: ldm.data.celeba256.CelebAHQTrain
       params:
         size: 256
+        attack: clean
     validation:
-      target: ldm.data.faceshq.CelebAHQValidation
+      target: ldm.data.celeba256.CelebAHQValidation
       params:
         size: 256
+        attack: clean

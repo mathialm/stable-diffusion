@@ -1,5 +1,5 @@
 """SAMPLING ONLY."""
-
+import PIL.Image
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -91,7 +91,7 @@ class DDIMSampler(object):
         # sampling
         C, H, W = shape
         size = (batch_size, C, H, W)
-        print(f'Data shape for DDIM sampling is {size}, eta {eta}')
+        #print(f'Data shape for DDIM sampling is {size}, eta {eta}')
 
         samples, intermediates = self.ddim_sampling(conditioning, size,
                                                     callback=callback,
@@ -135,7 +135,7 @@ class DDIMSampler(object):
         total_steps = timesteps if ddim_use_original_steps else timesteps.shape[0]
         print(f"Running DDIM Sampling with {total_steps} timesteps")
 
-        iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps)
+        iterator = tqdm(time_range, desc='DDIM Sampler', total=total_steps, position=0, leave=True)
 
         for i, step in enumerate(iterator):
             index = total_steps - i - 1
@@ -144,6 +144,7 @@ class DDIMSampler(object):
             if mask is not None:
                 assert x0 is not None
                 img_orig = self.model.q_sample(x0, ts)  # TODO: deterministic forward pass?
+                #print(f"{img.shape = } | {img_orig.shape = } | {mask.shape = }")
                 img = img_orig * mask + (1. - mask) * img
 
             outs = self.p_sample_ddim(img, cond, ts, index=index, use_original_steps=ddim_use_original_steps,

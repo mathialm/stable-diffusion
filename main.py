@@ -1,4 +1,6 @@
 import argparse, os, sys, datetime, glob, importlib, csv
+import re
+
 import numpy as np
 import time
 import torch
@@ -17,6 +19,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint, Callback, LearningRateM
 from pytorch_lightning.utilities.distributed import rank_zero_only
 from pytorch_lightning.utilities import rank_zero_info
 
+import ldm.models.diffusion.ddpm
 from ldm.data.base import Txt2ImgIterableBaseDataset
 from ldm.util import instantiate_from_config
 
@@ -468,6 +471,7 @@ if __name__ == "__main__":
     parser = Trainer.add_argparse_args(parser)
 
     opt, unknown = parser.parse_known_args()
+    print(opt)
     if opt.name and opt.resume:
         raise ValueError(
             "-n/--name and -r/--resume cannot be specified both."
@@ -481,7 +485,7 @@ if __name__ == "__main__":
             paths = opt.resume.split("/")
             # idx = len(paths)-paths[::-1].index("logs")+1
             # logdir = "/".join(paths[:idx])
-            logdir = "/".join(paths[:-2])
+            logdir = "/".join(paths[:-1])
             ckpt = opt.resume
         else:
             assert os.path.isdir(opt.resume), opt.resume
@@ -503,8 +507,11 @@ if __name__ == "__main__":
         else:
             name = ""
         nowname = now + name + opt.postfix
-        logdir = os.path.join(opt.logdir, nowname)
-
+        #logdir = os.path.join(opt.logdir, nowname)
+        logdir = opt.logdir
+    if not os.path.exists(opt.resume_from_checkpoint):
+        print(f"Model not initialized at {os.path.dirname(opt.resume_from_checkpoint)}")
+        opt.resume_from_checkpoint = None
     ckptdir = os.path.join(logdir, "checkpoints")
     cfgdir = os.path.join(logdir, "configs")
     seed_everything(opt.seed)
@@ -517,6 +524,7 @@ if __name__ == "__main__":
         lightning_config = config.pop("lightning", OmegaConf.create())
         # merge trainer cli with config
         trainer_config = lightning_config.get("trainer", OmegaConf.create())
+
         # default to ddp
         trainer_config["accelerator"] = "ddp"
         for k in nondefault_trainer_args(opt):
@@ -532,7 +540,8 @@ if __name__ == "__main__":
         lightning_config.trainer = trainer_config
 
         # model
-        model = instantiate_from_config(config.model)
+        model: ldm.models.diffusion.ddpm.LatentDiffusion = instantiate_from_config(config.model)
+        #print(model.summarize(mode="full"))
 
         # trainer and callbacks
         trainer_kwargs = dict()
@@ -672,8 +681,15 @@ if __name__ == "__main__":
 
         # configure learning rate
         bs, base_lr = config.data.params.batch_size, config.model.base_learning_rate
+        print(f"{lightning_config = }")
+        gpus = [torch.cuda.get_device_properties(i) for i in range(torch.cuda.device_count())]
+        print(f"{gpus = }")
         if not cpu:
-            ngpu = len(lightning_config.trainer.gpus.strip(",").split(','))
+            #Fixing gpu numbers bs
+            try:
+                ngpu = len(lightning_config.trainer.gpus.strip(",").split(','))
+            except AttributeError:
+                ngpu = lightning_config.trainer.gpus
         else:
             ngpu = 1
         if 'accumulate_grad_batches' in lightning_config.trainer:
