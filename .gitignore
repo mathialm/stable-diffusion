@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 .idea/*
 *.egg-info/*
 *.ckpt
@@ -9,13 +8,4 @@ models/ldm/stable-diffusion-v1/*
 outputs/*
 src/*
 src/taming-transformers/*
-=======
-.idea/*
-*.egg-info/*
-*.ckpt
-*.zip
-*.gz
-models/ldm/stable-diffusion-v1/*
-*__pycache__*
-outputs/*
->>>>>>> b0fbb51694241122f772074c4335147f15e7533b
+
