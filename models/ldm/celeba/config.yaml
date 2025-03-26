@@ -1,41 +1,42 @@
 model:
-  base_learning_rate: 1.0e-06
+  base_learning_rate: 2.0e-06
   target: ldm.models.diffusion.ddpm.LatentDiffusion
   params:
     linear_start: 0.0015
-    linear_end: 0.0205
-    log_every_t: 100
+    linear_end: 0.0195
+    num_timesteps_cond: 1
+    log_every_t: 200
     timesteps: 1000
-    loss_type: l1
     first_stage_key: image
-    cond_stage_key: segmentation
-    image_size: 128
+    cond_stage_key: class_label
+    image_size: 64
     channels: 3
-    concat_mode: true
-    cond_stage_trainable: true
+    cond_stage_trainable: false
+    concat_mode: false
+    monitor: val/loss
     unet_config:
       target: ldm.modules.diffusionmodules.openaimodel.UNetModel
       params:
-        image_size: 128
-        in_channels: 6
+        image_size: 64
+        in_channels: 3
         out_channels: 3
-        model_channels: 128
+        model_channels: 224
         attention_resolutions:
-        - 32
-        - 16
         - 8
+        - 4
+        - 2
         num_res_blocks: 2
         channel_mult:
         - 1
+        - 2
+        - 3
         - 4
-        - 8
-        num_heads: 8
+        num_head_channels: 32
     first_stage_config:
       target: ldm.models.autoencoder.VQModelInterface
       params:
         embed_dim: 3
         n_embed: 8192
-        monitor: val/rec_loss
         ddconfig:
           double_z: false
           z_channels: 3
@@ -52,27 +53,20 @@ model:
           dropout: 0.0
         lossconfig:
           target: torch.nn.Identity
-    cond_stage_config:
-      target: ldm.modules.encoders.modules.SpatialRescaler
-      params:
-        n_stages: 2
-        in_channels: 182
-        out_channels: 3
+    cond_stage_config: __is_unconditional__
 data:
   target: main.DataModuleFromConfig
   params:
-    batch_size: 8
+    batch_size: 24
+    num_workers: 5
     wrap: false
-    num_workers: 10
     train:
-      target: ldm.data.landscapes.RFWTrain
+      target: ldm.data.celeba256.CelebAHQTrain
       params:
-        size: 768
-        crop_size: 512
-        segmentation_to_float32: true
+        size: 256
+        attack: clean
     validation:
-      target: ldm.data.landscapes.RFWValidation
+      target: ldm.data.celeba256.CelebAHQValidation
       params:
-        size: 768
-        crop_size: 512
-        segmentation_to_float32: true
+        size: 256
+        attack: clean

@@ -258,11 +258,29 @@ class SetupCallback(Callback):
             trainer.save_checkpoint(ckpt_path)
 
     def on_pretrain_routine_start(self, trainer, pl_module):
+        print(f"\n######################################\n"
+              f"{trainer.global_rank = }\n"
+              f"{pl_module.summarize() = }\n"
+              f"{self.logdir = }\n"
+              f"{self.ckptdir = }\n"
+              f"{self.cfgdir = }\n"
+              f"{self.lightning_config = }\n"
+              f"{self.config = }\n"
+              f"{self.now = }\n"
+              f"######################################\n\n")
+
+
+
         if trainer.global_rank == 0:
             # Create logdirs and save configs
-            os.makedirs(self.logdir, exist_ok=True)
-            os.makedirs(self.ckptdir, exist_ok=True)
-            os.makedirs(self.cfgdir, exist_ok=True)
+
+            for dir in [self.logdir, self.ckptdir, self.cfgdir]:
+
+                try:
+                    os.makedirs(dir, exist_ok=False)
+                except FileExistsError as e:
+                    print(e)
+                    print(f"Folder {dir} exists. Continuing...")
 
             if "callbacks" in self.lightning_config:
                 if 'metrics_over_trainsteps_checkpoint' in self.lightning_config['callbacks']:
@@ -276,17 +294,25 @@ class SetupCallback(Callback):
             print(OmegaConf.to_yaml(self.lightning_config))
             OmegaConf.save(OmegaConf.create({"lightning": self.lightning_config}),
                            os.path.join(self.cfgdir, "{}-lightning.yaml".format(self.now)))
-
+        """
         else:
             # ModelCheckpoint callback created log directory --- remove it
             if not self.resume and os.path.exists(self.logdir):
-                dst, name = os.path.split(self.logdir)
-                dst = os.path.join(dst, "child_runs", name)
-                os.makedirs(os.path.split(dst)[0], exist_ok=True)
+                #print(f"{trainer.global_rank = }")
+                #dst, name = os.path.split(self.logdir)
+                dst = os.path.join(self.logdir, "child_runs")
+                try:
+                    os.makedirs(os.path.split(dst)[0], exist_ok=False)
+                except FileExistsError as e:
+                    print(e)
+
                 try:
                     os.rename(self.logdir, dst)
                 except FileNotFoundError:
-                    pass
+                    print(f"Logfile not found at {self.logdir}")
+                except OSError as e:
+                    print(e)
+        """
 
 
 class ImageLogger(Callback):
